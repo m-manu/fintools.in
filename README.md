@@ -1,3 +1,6 @@
+
+Hosted on: http://loan-calculators.appspot.com/
+
 EMI Calculator
 ==============
 The EMI (Equated Monthly Installment) you pay is directly proportional to the loan amount (known an principal in bank's terms). Longer the tenure of loan repayment, the higher is the fraction of the interest in your EMI.
