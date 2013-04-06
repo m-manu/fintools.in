@@ -1,16 +1,16 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="description" content="EMI calculator and Loan-limit calculator written in Javascript">
-<meta name="author" content="Manu">
-<meta name="keywords" content="EMI calculator,EMI,Loan Calculator,CI,Compound Interest,Installment,interest,bank">
+<meta name="author" content="Manu Manjunath">
+<meta name="keywords" content="Calculate Mortgage,EMI calculator,EMI,Loan Calculator,CI,Compound Interest,Installment,interest,bank">
 <meta name="robots" content="index,follow">
 <meta name="title" content="EMI calculator and Loan-Limit Calculator">
 <meta name="copyright" content="This program is free software (GPL)">
-<title>EMI calculator</title>
+<title>Loan Calculator</title>
 <!--
-Copyright (C) 2007 Manu <manu[dot]m[dot]karnataki(at)gmail[dot]com>
+Copyright (C) 2013 Manu Manjunath <manu dot m dot karnataki (at) g mail>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -70,6 +70,9 @@ select {
 	font-family: "Courier New";
 	color: #333333;
 }
+textarea {
+	font-family: "Courier New";
+}
 </style>
 <script language="javascript" type="text/javascript">
 
@@ -115,6 +118,15 @@ function SwitchToSimpleMode() // Switch to simple mode
 		document.getElementById(AdvancedModeElements[i]).style.height="0px";
 	}
 	return;
+}
+
+function numDaysThisYear(day) {
+	days_this_year = 365;
+	this_year = parseInt(day.getFullYear());
+	if(new Date(this_year, 1, 29).getMonth() == 1) { // if leap year
+		days_this_year++;
+	}
+	return days_this_year;
 }
 
 // Calculate:
@@ -204,7 +216,7 @@ function CalcEMI()
 			if(normalize_1)
 			{
 				nDiffDays=parseInt((dEMI-dEMIprev)/86400000); // 1 day = 86400000 milliseconds
-				Reff=R*cmp*nDiffDays/365; // Effective rate of interest, pro-rated for given number of days
+				Reff=R*cmp*nDiffDays/numDaysThisYear(dEMI); // Effective rate of interest, pro-rated for given number of days
 				Peff=Peff*(1+Reff)-EMI;
 				if(Pprev<EMI) Peff=0; // to close the loan
 				// Now, interest paid in given month is the difference 
@@ -382,7 +394,7 @@ function LogThis(sKey,sValue) {
 </head>
 <body>
 <h1>Loan Calculators</h1>
-<h2>EMI calculator </h2>
+<h2>EMI Calculator</h2>
 <form name="f" method="post" action="/" onSubmit="return CalcEMI();">
 <table border="0" cellpadding="2" cellspacing="0" id="tbl_emi">
 <tr>
@@ -420,8 +432,8 @@ function LogThis(sKey,sValue) {
 </tr>
 <tr>
   <td colspan="2" align="center">
-Mode: <label><input name="AdvancedMode" type="radio" id="AdvancedMode_No" onFocus="SwitchToSimpleMode();" value="yes" checked>Simple</label>
-<label><input name="AdvancedMode" type="radio"  id="AdvancedMode_Yes" onFocus="SwitchToAdvMode();" value="no">Detailed</label>
+Mode: <label><input name="AdvancedMode" type="radio" id="AdvancedMode_No" onClick="SwitchToSimpleMode();" value="yes" checked>Simple</label>
+<label><input name="AdvancedMode" type="radio"  id="AdvancedMode_Yes" onClick="SwitchToAdvMode();" value="no">Detailed</label>
 <br>
 <div id="div_emistart" style="visibility:hidden;height:0px;" align="left">
 <div id="div_dateofissue" style="margin-top:5px;">
@@ -442,12 +454,12 @@ Date of issue:
 	<option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
 	<option value="24">24</option><option value="25">25</option><option value="26" selected>26</option><option value="27">27</option>
 	<option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option>
-</select> <input name="txtYear" type="text" value="2007" size="4" maxlength="4"></div>
+</select> <input name="txtYear" type="text" value="2013" size="4" maxlength="4"></div>
 <div id="div_repaymentstart" style="margin-top:5px;margin-bottom:5px;">
 Repayment starts on <br>
-&nbsp;&nbsp;<label><input name="RepaymentStart" type="radio" id="RepaymentStart_sameday" value="sameday" checked>Date of issue</label><br>
-&nbsp;&nbsp;<label title="If repayment starts 1st day of next month, last few installments and loan closure will be appoximated"><input name="RepaymentStart" type="radio" id="RepaymentStart_day1next" value="day1next">1st
- day on next month</label>
+&nbsp;&nbsp;<label><input name="RepaymentStart" type="radio" id="RepaymentStart_sameday" value="sameday">Date of issue</label><br>
+&nbsp;&nbsp;<label title="If repayment starts 1st day of next month, last few installments and loan closure will be appoximated">
+<input name="RepaymentStart" type="radio" id="RepaymentStart_day1next" value="day1next" checked>1st day on next month</label>
 </div>
 </div>
 </td>
@@ -474,8 +486,10 @@ Total amount payable: <input name="t_emitot" type="text" class="answer" id="t_em
 <textarea name="txtBreakup" cols="70" rows="20" id="txtBreakup" title="Double-click on this text area to convert this to CSV (you can then import the values into a spreadsheet)" lang="en" onDblClick="SwitchToCSVMode();" readonly></textarea>
 </div>
 </form>
+<br>
 <hr width="50%" align="left">
-<h2>Loan limit calculator </h2>
+<br>
+<h2>Loan Limit Calculator</h2>
 <form name="fl" method="post" action="/" onSubmit="return CalcLL();">
 <table border="0" cellpadding="2" cellspacing="0" class="content" id="tbl_lim">
   <tr class="tblhd">
@@ -573,7 +587,7 @@ Total amount payable: <input name="t_emitot" type="text" class="answer" id="t_em
           <option value="1" selected>years</option>
           <option value="12">months</option>
         </select></td>
-    <td colspan="2" align="center" valign="middle"><label for="emibynmi"><abbr title="Equated Monthly Installment">EMI</abbr>/<abbr title="Net Monthly Income">NMI</abbr> ratio:
+    <td colspan="2" align="center" valign="middle"><label for="emibynmi"><acronym title="Equated Monthly Installment">EMI</acronym>/<acronym title="Net Monthly Income">NMI</acronym> ratio:
         <input name="emibynmi" type="text" class="currency" id="emibynmi" value="57.5" size="5" maxlength="6">
     </label>% </td>
   </tr>
