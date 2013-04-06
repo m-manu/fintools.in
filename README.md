@@ -1,4 +1,5 @@
-fincalc
-=======
+EMI Calculator
+==============
 
-Finance tools (India specific)
+Calculates EMI (Equated Monthly Installment)
+
