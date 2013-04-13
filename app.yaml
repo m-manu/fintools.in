@@ -4,5 +4,7 @@ runtime: python27
 api_version: 1
 threadsafe: no
 handlers:
-- url: .*
+- url: /
   script: main.py
+- url: .*
+  static_dir: static
