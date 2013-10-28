@@ -1,612 +1,616 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta name="description" content="EMI calculator and Loan-limit calculator written in Javascript">
-<meta name="author" content="Manu Manjunath">
-<meta name="keywords" content="Calculate Mortgage,EMI calculator,EMI,Loan Calculator,CI,Compound Interest,Installment,interest,bank">
-<meta name="robots" content="index,follow">
-<meta name="title" content="EMI calculator and Loan-Limit Calculator">
-<meta name="copyright" content="This program is free software (GPL)">
-<meta name="google-site-verification" content="ADON0Mt69_NLIwnR7i1eCDEJyaYcERI517r3HbOKyNg" />
-<title>Loan Calculators</title>
-<!--
-Copyright (C) 2013 Manu Manjunath <manu dot m dot karnataki (at) g mail>
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-GNU General Public License can be found at http://www.gnu.org/licenses/gpl.txt
--->
-<style type="text/css">
-body {
-	margin-left: 20px;
-}
-
-tr.tblhd th{
-	color: #000066;
-	text-decoration: underline;
-	font-weight: normal;
-}
-
-input.answer {
-	color: #990000;
-	font-family: "Courier New";
-	text-align: right;
-}
-h1 {
-	font-family: sans-serif;
-	color: #006F37;
-	font-size: 24px;
-	border-bottom: #000066 thin dashed;
-}
-h2 {
-	font-family: Georgia;
-	font-size: 18px;
-	color: #993300;
-}
-.content, body {
-	font-family: Verdana;
-	font-size: 12px;
-}
-input.button {
-	font-family: Verdana;	
-}
-.sml_menu {
-	font-size: 11px;
-}
-select {
-	font-family: sans-serif;
-	font-size: 12px;
-}
-.currency {
-	text-align: right;
-	font-family: "Courier New";
-	color: #333333;
-}
-textarea {
-	font-family: "Courier New";
-}
-</style>
-<script language="javascript" type="text/javascript">
-
-//Global variables:
-var bAdvancedMode=false; // Detailed/Simple mode?
-var AdvancedModeElements=Array("div_breakup","div_totamount","div_emistart"); // Elements of form which are exposed in detailed mode.
-var bModeCSV=false; // Put break details in CSV format?
-var Alignment=10;
-var Months=new Array("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec");
-
-function SwitchToCSVMode()
-{
-	bModeCSV=true;
-	CalcEMI();
-	bModeCSV=false;
-	return;
-}
-
-function ClearF()
-{
-	if(confirm('This will reset the form')) {
-		SwitchToSimpleMode();
-		document.f.reset();
-	}
-	return;
-}
-
-function SwitchToAdvMode() 	// Switch to advanced(detailed) mode
-{
-	bAdvancedMode=true;
-	for(var i=0;i<AdvancedModeElements.length;i++) {
-		document.getElementById(AdvancedModeElements[i]).style.visibility="visible";
-		document.getElementById(AdvancedModeElements[i]).style.height="auto";
-	}
-	return;
-}
-
-function SwitchToSimpleMode() // Switch to simple mode
-{
-	bAdvancedMode=false;
-	for(var i=0;i<AdvancedModeElements.length;i++) {
-		document.getElementById(AdvancedModeElements[i]).style.visibility="hidden";
-		document.getElementById(AdvancedModeElements[i]).style.height="0px";
-	}
-	return;
-}
-
-function numDaysThisYear(day) {
-	days_this_year = 365;
-	this_year = parseInt(day.getFullYear());
-	if(new Date(this_year, 1, 29).getMonth() == 1) { // if leap year
-		days_this_year++;
-	}
-	return days_this_year;
-}
-
-// Calculate:
-// EMI, Amorization Schedule, total interest
-function CalcEMI()
-{
-	var P,R,N,cmp,EMI,i,I_i,P_i,Peff,totEMI,totI,totI_actual;
-	/*
-	The above variables are:
-		P -> Principal
-		R -> Rate of interest (in fraction)
-		N -> Number of installments
-		cmp -> Compounding factor
-		i -> Iterator variable
-		I_i -> Interest paid at the (i)th installment
-		P_i -> Principal paid at the (i)th installment
-		Peff -> Effective Principal (oustanding amount) at a given point of time
-		totEMI -> Sum total of all the installments paid
-		totI -> Total intestest payable, calculated from totEMI
-		totI_actual -> Actual amount of interest paid over the installment period
-	*/
-	if(!validateF()) return false;// Validate the form
-	// Get variables:
-	cmp=document.f.sel_compounding.value;
-	P=document.f.t_principal.value;
-	N=(document.f.t_term.value/document.f.sel_units.value)*cmp; 
-	R=(document.f.t_interest.value/100)/cmp;
-	// We have P, N and R
-	// Apply EMI formula and normalize it one month:
-	EMI=(cmp/12)*P*R/(1-Math.pow(1+R,-N));
-	if(isNaN(EMI) || EMI < 0) window.alert("Invalid inputs to calculate EMI!");
-	else document.f.t_emi.value=RoundToPaise(EMI);
-	if(bAdvancedMode) // Calculate more details in advanced mode:
-	{
-		// Total amount you pay: (number of installments X EMI)
-		totEMI=EMI*N/cmp*12;
-		// Total interest paid: (number of installments X EMI - Principal)
-		totI=totEMI-P;
-		document.f.t_emitot.value=RoundToPaise(totEMI);
-		document.f.t_sumint.value=RoundToPaise(totI);			
-		var sDate=String(),txtBreakup,normalize_1,nDiffDays,Pprev,nDiffDays,Reff;
-		var dEMI=new Date(),dEMIprev=new Date(),dLoanIssue=new Date();
-		/*
-			sDate -> Date as string
-			txtBreakup -> Variable to keep all the breakup details
-			normalize_1 -> Should installment start from 1st day of next month?
-			nDiffDays -> Number of days b/w compounding
-			Pprev -> Principal paid in previous installment
-			Reff -> Effective rate of interest (in fraction)
-			dEMI -> Date of intallment
-			dEMIprev -> Date of previous installment
-			dLoanIssue -> Date of loan issue
-		*/
-		dLoanIssue.setFullYear(parseInt(document.f.txtYear.value));
-		dLoanIssue.setMonth(document.f.iMonth.selectedIndex-1);		
-		dLoanIssue.setDate(document.f.iDay.selectedIndex);
-		// Check the status on radio:
-		normalize_1=document.getElementById("RepaymentStart_day1next").checked;
-		if (bModeCSV) {
-			txtBreakup="Date,Principal,Interest,Outstanding\n";
-		}
-		else {
-			txtBreakup=
-				"|----------------------------------------------------------|\n"+
-				"|    Date     |   Principal  |   Interest   |  Outstanding |\n"+
-				"|----------------------------------------------------------|\n";
-		}
-		Peff=P;
-		totI_actual=0;
-		// Copy dLoanIssue to dEMIprev
-		dEMIprev.setFullYear(dLoanIssue.getFullYear());
-		dEMIprev.setMonth(dLoanIssue.getMonth());
-		dEMIprev.setDate(dLoanIssue.getDate());		
-		if(normalize_1) {
-			Pprev=Peff;
-			// Get 1st day of next month:
-			dEMI.setFullYear(dLoanIssue.getFullYear());
-			dEMI.setMonth(dLoanIssue.getMonth()+1); 
-			dEMI.setDate(1);
-		}
-		else {
-			dEMI=dEMIprev;
-		}
-		// Calculate amortization schedule as follows:
-		for(i=1;i<=N;i++) // From 1st installment to Nth installment:
-		{
-			if(normalize_1)
-			{
-				nDiffDays=parseInt((dEMI-dEMIprev)/86400000); // 1 day = 86400000 milliseconds
-				Reff=R*cmp*nDiffDays/numDaysThisYear(dEMI); // Effective rate of interest, pro-rated for given number of days
-				Peff=Peff*(1+Reff)-EMI;
-				if(Pprev<EMI) Peff=0; // to close the loan
-				// Now, interest paid in given month is the difference 
-				// in outstanding principal amounts b/w current month and previous month:
-				P_i=Pprev-Peff;
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta name="description" content="EMI calculator and Loan-limit calculator written in Javascript">
+		<meta name="author" content="Manu Manjunath">
+		<meta name="keywords" content="Calculate Mortgage,EMI calculator,EMI,Loan Calculator,CI,Compound Interest,Installment,interest,bank">
+		<meta name="robots" content="index,follow">
+		<meta name="title" content="EMI calculator and Loan-Limit Calculator">
+		<meta name="copyright" content="This program is free software (GPL)">
+		<meta name="google-site-verification" content="ADON0Mt69_NLIwnR7i1eCDEJyaYcERI517r3HbOKyNg" />
+		<title>Loan Calculators</title>
+		<!--
+		Copyright (C) 2013 Manu Manjunath <manu dot m dot karnataki (at) g mail>
+		
+		This program is free software; you can redistribute it and/or modify
+		it under the terms of the GNU General Public License as published by
+		the Free Software Foundation; either version 2 of the License, or
+		(at your option) any later version.
+		
+		This program is distributed in the hope that it will be useful,
+		but WITHOUT ANY WARRANTY; without even the implied warranty of
+		MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+		GNU General Public License for more details.
+		
+		GNU General Public License can be found at http://www.gnu.org/licenses/gpl.txt
+		-->
+		<style type="text/css">
+			body {
+				margin-left: 20px;
 			}
-			else
-			{
-			 	// Directly applying the formula:
-				P_i=(EMI-P*R)*Math.pow(1+R,i-1); 
-				Peff = Peff - P_i;
+
+			tr.tblhd th{
+				color: #000066;
+				text-decoration: underline;
+				font-weight: normal;
 			}
-			I_i=EMI-P_i;
-			totI_actual+=I_i;
-			// Form a date string in required format:
-			sDate=(dEMI.getDate()<10?"0"+dEMI.getDate():dEMI.getDate())+"-"+Months[dEMI.getMonth()]+"-"+dEMI.getFullYear();
-			if (bModeCSV)
-				txtBreakup += sDate + "," + RoundToPaise(P_i) +","+RoundToPaise(I_i)+ "," + RoundToPaise(Peff) + "\n";
-			else
-				txtBreakup += "| " + IndentR(sDate) + " |  " + IndentR(RoundToPaise(P_i)) +"  |  "+IndentR(RoundToPaise(I_i))+ "  |  "+ IndentR(RoundToPaise(Peff))+ "  |\n";
-			Pprev=Peff;
-			dEMIprev.setFullYear(dEMI.getFullYear());
-			dEMIprev.setMonth(dEMI.getMonth()); 
-			dEMIprev.setDate(dEMI.getDate());
-			dEMI.setMonth(dEMI.getMonth()+1);	// increment by 1 month (installment for next month)
-			if(Peff==0) break;			
-		}
-		if (!bModeCSV) {txtBreakup+="|----------------------------------------------------------|";}
-		//window.alert(totI_actual);
-		document.f.txtBreakup.value=txtBreakup;
-	}
-	return false;
-}
 
-function validateF() // Function to validate the EMI Calculator form
-{
-	if(document.f.t_principal.value == "") {
-		window.alert("Enter loan amount \n(Principal value)");
-		document.f.t_principal.focus();
-		return false;		
-	}
-	if(document.f.t_term.value == "") {
-		window.alert("Enter loan repayment period");
-		document.f.t_term.focus();
-		return false;		
-	}
-	if(document.f.t_interest.value == "" ) {
-		window.alert("Enter rate of interest");
-		document.f.t_interest.focus();
-		return false;		
-	}
-	if(isNaN(document.f.t_principal.value) || document.f.t_principal.value < 0)  {
-		window.alert("Enter a valid value for loan amount");
-		document.f.t_principal.select();
-		return false;		
-	}
-	if(isNaN(document.f.t_term.value) || document.f.t_term.value < 0)  {
-		window.alert("Enter a valid value for loan period\n(This may range from few months to 20 years)");
-		document.f.t_term.select();
-		return false;		
-	}
-	if(isNaN(document.f.t_interest.value) || document.f.t_interest.value>100 || document.f.t_interest.value<0)  {
-		window.alert("Enter a valid value for rate of interest\n(R should be between 0 and 100)");
-		document.f.t_interest.select();
-		return false;		
-	}
-	if(document.f.AdvancedMode_Yes.checked) {
-		// validations for advanced mode:
-		if(document.f.iMonth.value==0||document.f.iDay.value==0)  {
-			window.alert("Enter installment start date");
-			document.f.iMonth.focus();
-			return false;
-		}
-	}
-	return true;
-}
+			input.answer {
+				color: #990000;
+				font-family: "Courier New";
+				text-align: right;
+			}
+			h1 {
+				font-family: sans-serif;
+				color: #006F37;
+				font-size: 24px;
+				border-bottom: #000066 thin dashed;
+			}
+			h2 {
+				font-family: Georgia;
+				font-size: 18px;
+				color: #993300;
+			}
+			.content, body {
+				font-family: Verdana;
+				font-size: 12px;
+			}
+			input.button {
+				font-family: Verdana;	
+			}
+			.sml_menu {
+				font-size: 11px;
+			}
+			select {
+				font-family: sans-serif;
+				font-size: 12px;
+			}
+			.currency {
+				text-align: right;
+				font-family: "Courier New";
+				color: #333333;
+			}
+			textarea {
+				font-family: "Courier New";
+			}
+		</style>
+		<script language="javascript" type="text/javascript">
 
-function RoundToPaise(Amount) // Format number to Rupee Paise format
-{
-	var AmountStr,i,t;
-	if(isNaN(Amount)) { return "NaN"; }
-	AmountStr = "" + Math.round(Amount * 100)/100; // round to 2 decimal places
-	i = AmountStr.indexOf('.');
-	if(i==-1) return (AmountStr+".00");
-	t = AmountStr.substring(0,i+1)+AmountStr.substring(i+1,i+3);
-	if(i+2 == AmountStr.length) t += "0";
-	return t;
-}
+			//Global variables:
+			var bAdvancedMode = false; // Detailed/Simple mode?
+			var AdvancedModeElements = Array("div_breakup", "div_totamount", "div_emistart"); // Elements of form which are exposed in detailed mode.
+			var bModeCSV = false; // Put break details in CSV format?
+			var Alignment = 10;
+			var Months = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
 
-function IndentR(str_i) // Indent function to required length
-{
-	var str=String(str_i),padding="",i=0;
-	for(i=0;i<Alignment-str.length;i++) {
-		padding+=" ";
-	}
-	str=padding+str;
-	return str;
-}
+			function SwitchToCSVMode()
+			{
+				bModeCSV = true;
+				CalcEMI();
+				bModeCSV = false;
+				return;
+			}
 
-function validateFL() // Function to validate the Loan limit Calculator form
-{
-	for (var i = 0; i < document.fl.elements.length; i++) {
-    if (document.fl.elements[i].type=="text") {
-			if(isNaN(document.fl.elements[i].value)) {
-				window.alert("Invalid input");
-				document.fl.elements[i].select();
+			function ClearF()
+			{
+				if (confirm('This will reset the form')) {
+					SwitchToSimpleMode();
+					document.f.reset();
+				}
+				return;
+			}
+
+			function SwitchToAdvMode() 	// Switch to advanced(detailed) mode
+			{
+				bAdvancedMode = true;
+				for (var i = 0; i < AdvancedModeElements.length; i++) {
+					document.getElementById(AdvancedModeElements[i]).style.visibility = "visible";
+					document.getElementById(AdvancedModeElements[i]).style.height = "auto";
+				}
+				return;
+			}
+
+			function SwitchToSimpleMode() // Switch to simple mode
+			{
+				bAdvancedMode = false;
+				for (var i = 0; i < AdvancedModeElements.length; i++) {
+					document.getElementById(AdvancedModeElements[i]).style.visibility = "hidden";
+					document.getElementById(AdvancedModeElements[i]).style.height = "0px";
+				}
+				return;
+			}
+
+			function numDaysThisYear(day) {
+				days_this_year = 365;
+				this_year = parseInt(day.getFullYear());
+				if (new Date(this_year, 1, 29).getMonth() == 1) { // if leap year
+					days_this_year++;
+				}
+				return days_this_year;
+			}
+
+			// Calculate:
+			// EMI, Amorization Schedule, total interest
+			function CalcEMI()
+			{
+				var P, R, N, cmp, EMI, i, I_i, P_i, Peff, totEMI, totI, totI_actual;
+				/*
+				 The above variables are:
+				 P -> Principal
+				 R -> Rate of interest (in fraction)
+				 N -> Number of installments
+				 cmp -> Compounding factor
+				 i -> Iterator variable
+				 I_i -> Interest paid at the (i)th installment
+				 P_i -> Principal paid at the (i)th installment
+				 Peff -> Effective Principal (oustanding amount) at a given point of time
+				 totEMI -> Sum total of all the installments paid
+				 totI -> Total intestest payable, calculated from totEMI
+				 totI_actual -> Actual amount of interest paid over the installment period
+				 */
+				if (!validateF())
+					return false;// Validate the form
+				// Get variables:
+				cmp = document.f.sel_compounding.value;
+				P = document.f.t_principal.value;
+				N = (document.f.t_term.value / document.f.sel_units.value) * cmp;
+				R = (document.f.t_interest.value / 100) / cmp;
+				// We have P, N and R
+				// Apply EMI formula and normalize it one month:
+				EMI = (cmp / 12) * P * R / (1 - Math.pow(1 + R, -N));
+				if (isNaN(EMI) || EMI < 0)
+					window.alert("Invalid inputs to calculate EMI!");
+				else
+					document.f.t_emi.value = RoundToPaise(EMI);
+				if (bAdvancedMode) // Calculate more details in advanced mode:
+				{
+					// Total amount you pay: (number of installments X EMI)
+					totEMI = EMI * N / cmp * 12;
+					// Total interest paid: (number of installments X EMI - Principal)
+					totI = totEMI - P;
+					document.f.t_emitot.value = RoundToPaise(totEMI);
+					document.f.t_sumint.value = RoundToPaise(totI);
+					var sDate = String(), txtBreakup, normalize_1, nDiffDays, Pprev, nDiffDays, Reff;
+					var dEMI = new Date(), dEMIprev = new Date(), dLoanIssue = new Date();
+					/*
+					 sDate -> Date as string
+					 txtBreakup -> Variable to keep all the breakup details
+					 normalize_1 -> Should installment start from 1st day of next month?
+					 nDiffDays -> Number of days b/w compounding
+					 Pprev -> Principal paid in previous installment
+					 Reff -> Effective rate of interest (in fraction)
+					 dEMI -> Date of intallment
+					 dEMIprev -> Date of previous installment
+					 dLoanIssue -> Date of loan issue
+					 */
+					dLoanIssue.setFullYear(parseInt(document.f.txtYear.value));
+					dLoanIssue.setMonth(document.f.iMonth.selectedIndex - 1);
+					dLoanIssue.setDate(document.f.iDay.selectedIndex);
+					// Check the status on radio:
+					normalize_1 = document.getElementById("RepaymentStart_day1next").checked;
+					if (bModeCSV) {
+						txtBreakup = "Date,Principal,Interest,Outstanding\n";
+					}
+					else {
+						txtBreakup =
+										"|----------------------------------------------------------|\n" +
+										"|    Date     |   Principal  |   Interest   |  Outstanding |\n" +
+										"|----------------------------------------------------------|\n";
+					}
+					Peff = P;
+					totI_actual = 0;
+					// Copy dLoanIssue to dEMIprev
+					dEMIprev.setFullYear(dLoanIssue.getFullYear());
+					dEMIprev.setMonth(dLoanIssue.getMonth());
+					dEMIprev.setDate(dLoanIssue.getDate());
+					if (normalize_1) {
+						Pprev = Peff;
+						// Get 1st day of next month:
+						dEMI.setFullYear(dLoanIssue.getFullYear());
+						dEMI.setMonth(dLoanIssue.getMonth() + 1);
+						dEMI.setDate(1);
+					}
+					else {
+						dEMI = dEMIprev;
+					}
+					// Calculate amortization schedule as follows:
+					for (i = 1; i <= N; i++) // From 1st installment to Nth installment:
+					{
+						if (normalize_1)
+						{
+							nDiffDays = parseInt((dEMI - dEMIprev) / 86400000); // 1 day = 86400000 milliseconds
+							Reff = R * cmp * nDiffDays / numDaysThisYear(dEMI); // Effective rate of interest, pro-rated for given number of days
+							Peff = Peff * (1 + Reff) - EMI;
+							if (Pprev < EMI)
+								Peff = 0; // to close the loan
+							// Now, interest paid in given month is the difference 
+							// in outstanding principal amounts b/w current month and previous month:
+							P_i = Pprev - Peff;
+						}
+						else
+						{
+							// Directly applying the formula:
+							P_i = (EMI - P * R) * Math.pow(1 + R, i - 1);
+							Peff = Peff - P_i;
+						}
+						I_i = EMI - P_i;
+						totI_actual += I_i;
+						// Form a date string in required format:
+						sDate = (dEMI.getDate() < 10 ? "0" + dEMI.getDate() : dEMI.getDate()) + "-" + Months[dEMI.getMonth()] + "-" + dEMI.getFullYear();
+						if (bModeCSV)
+							txtBreakup += sDate + "," + RoundToPaise(P_i) + "," + RoundToPaise(I_i) + "," + RoundToPaise(Peff) + "\n";
+						else
+							txtBreakup += "| " + IndentR(sDate) + " |  " + IndentR(RoundToPaise(P_i)) + "  |  " + IndentR(RoundToPaise(I_i)) + "  |  " + IndentR(RoundToPaise(Peff)) + "  |\n";
+						Pprev = Peff;
+						dEMIprev.setFullYear(dEMI.getFullYear());
+						dEMIprev.setMonth(dEMI.getMonth());
+						dEMIprev.setDate(dEMI.getDate());
+						dEMI.setMonth(dEMI.getMonth() + 1);	// increment by 1 month (installment for next month)
+						if (Peff == 0)
+							break;
+					}
+					if (!bModeCSV) {
+						txtBreakup += "|----------------------------------------------------------|";
+					}
+					//window.alert(totI_actual);
+					document.f.txtBreakup.value = txtBreakup;
+				}
 				return false;
 			}
-			if(document.fl.elements[i].name.substr(0,2)=="pc" && (document.fl.elements[i].value>100||document.fl.elements[i].value<0)) {
-				window.alert("Enter value between 0 and 100");
-				document.fl.elements[i].select();
+
+			function validateF() // Function to validate the EMI Calculator form
+			{
+				if (document.f.t_principal.value == "") {
+					window.alert("Enter loan amount \n(Principal value)");
+					document.f.t_principal.focus();
+					return false;
+				}
+				if (document.f.t_term.value == "") {
+					window.alert("Enter loan repayment period");
+					document.f.t_term.focus();
+					return false;
+				}
+				if (document.f.t_interest.value == "") {
+					window.alert("Enter rate of interest");
+					document.f.t_interest.focus();
+					return false;
+				}
+				if (isNaN(document.f.t_principal.value) || document.f.t_principal.value < 0) {
+					window.alert("Enter a valid value for loan amount");
+					document.f.t_principal.select();
+					return false;
+				}
+				if (isNaN(document.f.t_term.value) || document.f.t_term.value < 0) {
+					window.alert("Enter a valid value for loan period\n(This may range from few months to 20 years)");
+					document.f.t_term.select();
+					return false;
+				}
+				if (isNaN(document.f.t_interest.value) || document.f.t_interest.value > 100 || document.f.t_interest.value < 0) {
+					window.alert("Enter a valid value for rate of interest\n(R should be between 0 and 100)");
+					document.f.t_interest.select();
+					return false;
+				}
+				if (document.f.AdvancedMode_Yes.checked) {
+					// validations for advanced mode:
+					if (document.f.iMonth.value == 0 || document.f.iDay.value == 0) {
+						window.alert("Enter installment start date");
+						document.f.iMonth.focus();
+						return false;
+					}
+				}
+				return true;
+			}
+
+			function RoundToPaise(Amount) // Format number to Rupee Paise format
+			{
+				var AmountStr, i, t;
+				if (isNaN(Amount)) {
+					return "NaN";
+				}
+				AmountStr = "" + Math.round(Amount * 100) / 100; // round to 2 decimal places
+				i = AmountStr.indexOf('.');
+				if (i == -1)
+					return (AmountStr + ".00");
+				t = AmountStr.substring(0, i + 1) + AmountStr.substring(i + 1, i + 3);
+				if (i + 2 == AmountStr.length)
+					t += "0";
+				return t;
+			}
+
+			function IndentR(str_i) // Indent function to required length
+			{
+				var str = String(str_i), padding = "", i = 0;
+				for (i = 0; i < Alignment - str.length; i++) {
+					padding += " ";
+				}
+				str = padding + str;
+				return str;
+			}
+
+			function validateFL() // Function to validate the Loan limit Calculator form
+			{
+				for (var i = 0; i < document.fl.elements.length; i++) {
+					if (document.fl.elements[i].type == "text") {
+						if (isNaN(document.fl.elements[i].value)) {
+							window.alert("Invalid input");
+							document.fl.elements[i].select();
+							return false;
+						}
+						if (document.fl.elements[i].name.substr(0, 2) == "pc" && (document.fl.elements[i].value > 100 || document.fl.elements[i].value < 0)) {
+							window.alert("Enter value between 0 and 100");
+							document.fl.elements[i].select();
+							return false;
+						}
+					}
+				}
+				if (document.fl.t_term.value == "") {
+					window.alert("Enter loan repayment period");
+					document.fl.t_term.focus();
+					return false;
+				}
+				if (document.fl.t_interest.value == "") {
+					window.alert("Enter rate of interest");
+					document.fl.t_interest.focus();
+					return false;
+				}
+				if (isNaN(document.fl.t_term.value) || document.fl.t_term.value < 0) {
+					window.alert("Enter a valid value for loan period\n" +
+									"(This may range from few months to 20 years)");
+					document.fl.t_term.select();
+					return false;
+				}
+				if (isNaN(document.fl.t_interest.value) || document.fl.t_interest.value > 100 || document.fl.t_interest.value < 0) {
+					window.alert("Enter a valid value for rate of interest\n" +
+									"(R should be between 0 and 100)");
+					document.fl.t_interest.select();
+					return false;
+				}
+				return true;
+			}
+
+			// Calculate loan limit:
+			// (for a given set of income)
+			function CalcLL()
+			{
+				if (!validateFL())
+					return false;
+				document.fl.report.value = "";
+				var AnnualIncomeCalc = 0, EmiByNmi, LoanLimit, LLperiod, R, P, N, MaxEMI, LoanLimitEMI, AnnualIncomeActual = 0, i, cmp;
+				EmiByNmi = document.fl.emibynmi.value / 100;
+				LLperiod = document.fl.llperiod.value / document.fl.period_units.value;
+				for (i = 1; i <= 5; i++) {
+					AnnualIncomeCalc += eval("document.fl.soi_" + i + ".value*" + "document.fl.iu" + i + ".value" + "*document.fl.pc" + i + ".value/100");
+					AnnualIncomeActual += eval("document.fl.soi_" + i + ".value*document.fl.iu" + i + ".value");
+				}
+				LogThis("Annual Income (actual)", RoundToPaise(AnnualIncomeActual));
+				LogThis("Monthly Income (actual)", RoundToPaise(AnnualIncomeActual / 12));
+				LogThis("Income considered for loan", RoundToPaise(AnnualIncomeCalc));
+				LoanLimit = AnnualIncomeCalc * LLperiod; // Calculate Loan Limit
+				cmp = document.fl.sel_compounding.value;
+				R = (document.fl.t_interest.value / 100) / cmp; // rate%
+				N = (document.fl.t_term.value / document.fl.sel_units.value) * cmp;
+				MaxEMI = (AnnualIncomeCalc / 12) * EmiByNmi; //  Maximum EMI = (Net Montly Income) * (EMI:NMI ratio)
+				LogThis("EMI limit", RoundToPaise(AnnualIncomeCalc / 12) + " X " + document.fl.emibynmi.value + "% = " + RoundToPaise(MaxEMI));
+				LoanLimitEMI = (12 / cmp) * MaxEMI * (1 - Math.pow(1 + R, -N)) / R;
+				LogThis("Loan Limit (income for " + Math.round(LLperiod * 12 * 10) / 10 + " months)", RoundToPaise(LoanLimit));
+				LogThis("Loan Limit (EMI basis)", RoundToPaise(LoanLimitEMI));
+				if (LoanLimit > LoanLimitEMI)
+					LoanLimit = LoanLimitEMI;
+				document.fl.loanlimit.value = RoundToPaise(LoanLimit);
 				return false;
 			}
-		}
-	}
-	if(document.fl.t_term.value == "") {
-		window.alert("Enter loan repayment period");
-		document.fl.t_term.focus();
-		return false;		
-	}
-	if(document.fl.t_interest.value == "" ) {
-		window.alert("Enter rate of interest");
-		document.fl.t_interest.focus();
-		return false;		
-	}
-	if(isNaN(document.fl.t_term.value) || document.fl.t_term.value < 0)  {
-		window.alert("Enter a valid value for loan period\n" +
-			"(This may range from few months to 20 years)");
-		document.fl.t_term.select();
-		return false;		
-	}
-	if(isNaN(document.fl.t_interest.value) || document.fl.t_interest.value>100 || document.fl.t_interest.value<0)  {
-		window.alert("Enter a valid value for rate of interest\n" +
-			"(R should be between 0 and 100)");
-		document.fl.t_interest.select();
-		return false;		
-	}	
-	return true;
-}
 
-// Calculate loan limit:
-// (for a given set of income)
-function CalcLL()
-{
-	if(!validateFL()) return false;
-	document.fl.report.value ="" ;
-	var AnnualIncomeCalc=0,EmiByNmi,LoanLimit,LLperiod,R,P,N,MaxEMI,LoanLimitEMI,AnnualIncomeActual=0,i,cmp;
-	EmiByNmi = document.fl.emibynmi.value / 100;
-	LLperiod = document.fl.llperiod.value / document.fl.period_units.value;
-	for(i=1;i<=5;i++) {
-		AnnualIncomeCalc+=eval("document.fl.soi_"+i+".value*"+"document.fl.iu"+i+".value"+"*document.fl.pc"+i+".value/100");
-		AnnualIncomeActual+=eval("document.fl.soi_"+i+".value*document.fl.iu"+i+".value");
-	}
-	LogThis("Annual Income (actual)",RoundToPaise(AnnualIncomeActual));
-	LogThis("Monthly Income (actual)",RoundToPaise(AnnualIncomeActual/12));
-	LogThis("Income considered for loan",RoundToPaise(AnnualIncomeCalc));
-	LoanLimit = AnnualIncomeCalc*LLperiod; // Calculate Loan Limit
-	cmp=document.fl.sel_compounding.value;	
-	R=(document.fl.t_interest.value/100)/cmp; // rate%
-	N=(document.fl.t_term.value/document.fl.sel_units.value)*cmp;
-	MaxEMI=(AnnualIncomeCalc/12)*EmiByNmi; //  Maximum EMI = (Net Montly Income) * (EMI:NMI ratio)
-	LogThis("EMI limit",RoundToPaise(AnnualIncomeCalc/12) + " X " + document.fl.emibynmi.value + "% = " + RoundToPaise(MaxEMI));
-	LoanLimitEMI = (12/cmp)*MaxEMI*(1-Math.pow(1+R,-N))/R;
-	LogThis("Loan Limit (income for "+Math.round(LLperiod*12*10)/10+" months)", RoundToPaise(LoanLimit));
-	LogThis("Loan Limit (EMI basis)", RoundToPaise(LoanLimitEMI));
-	if (LoanLimit > LoanLimitEMI) LoanLimit = LoanLimitEMI;
-	document.fl.loanlimit.value=RoundToPaise(LoanLimit);
-	return false;
-}
+			function LogThis(sKey, sValue) {
+				document.fl.report.value += sKey + " = " + sValue + "\n";
+			}
+		</script>
+	</head>
+	<body>
+		<h1>Loan Calculators</h1>
+		<h2>EMI Calculator</h2>
+		<form name="f" method="post" action="/" onSubmit="return CalcEMI();">
+			<table border="0" cellpadding="2" cellspacing="0" id="tbl_emi">
+				<tr>
+					<td align="right"><label for="t_principal">Loan amount</label> = </td>
+					<td align="left">
+						<input name="t_principal" type="text" id="t_principal" size="14" maxlength="10"></td>
+				</tr>
+				<tr>
+					<td align="right"><label for="t_term">Term of Loan</label> = </td>
+					<td align="left"><input name="t_term" type="text" id="t_term" size="5" maxlength="4">
+						<select name="sel_units" class="sml_menu" id="sel_units">
+							<option value="1" selected>years</option>
+							<option value="12">months</option></select></td>
+				</tr>
 
-function LogThis(sKey,sValue) {
-	document.fl.report.value += sKey + " = " + sValue + "\n";
-}
-</script>
-</head>
-<body>
-<h1>Loan Calculators</h1>
-<h2>EMI Calculator</h2>
-<form name="f" method="post" action="/" onSubmit="return CalcEMI();">
-<table border="0" cellpadding="2" cellspacing="0" id="tbl_emi">
-<tr>
-<td align="right"><label for="t_principal">Loan amount</label>
-  =</td>
-<td align="left">
-<input name="t_principal" type="text" id="t_principal" size="14" maxlength="10"></td>
-</tr>
-<tr>
-  <td align="right"><label for="t_term">Term of Loan</label>
-    =</td>
-  <td align="left"><input name="t_term" type="text" id="t_term" size="5" maxlength="4">
-  <select name="sel_units" class="sml_menu" id="sel_units">
-  <option value="1" selected>years</option>
-  <option value="12">months</option></select></td>
-</tr>
+				<tr>
+					<td align="right"><label for="t_interest">Interest Rate</label>	= </td>
+					<td align="left">
+						<input name="t_interest" type="text" id="t_interest" size="6" maxlength="6">%</td>
+				</tr>
 
-<tr>
-<td align="right"><label for="t_interest">Interest Rate</label>
-  = </td>
-<td align="left">
-<input name="t_interest" type="text" id="t_interest" size="6" maxlength="6">%</td>
-</tr>
+				<tr>
+					<td align="right"><label for="sel_compounding">Compounding:</label> </td>
+					<td align="left">
+						<select name="sel_compounding" id="sel_compounding">
+							<option value="1">Yearly</option>
+							<option value="2">Half yearly</option>
+							<option value="4">Quarterly</option>
+							<option value="12" selected>Monthly</option>
+							<option value="365.25">Daily</option>
+						</select></td>
+				</tr>
+				<tr>
+					<td colspan="2" align="center">
+						Mode: <label><input name="AdvancedMode" type="radio" id="AdvancedMode_No" onClick="SwitchToSimpleMode();" value="yes" checked>Simple</label>
+						<label><input name="AdvancedMode" type="radio"  id="AdvancedMode_Yes" onClick="SwitchToAdvMode();" value="no">Detailed</label>
+						<br>
+						<div id="div_emistart" style="visibility:hidden;height:0px;" align="left">
+							<div id="div_dateofissue" style="margin-top:5px;">
+								Date of issue:
+								<select name="iMonth" id="iMonth">
+									<option value="0"></option>
+									<option value="1" selected>Jan</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Apr</option>
+									<option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Aug</option>
+									<option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+								</select>
+								<select name="iDay" id="iDay">
+									<option value="0"></option>
+									<option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+									<option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+									<option value="9">9</option><option value="10">10</option><option value="11">11</option>
+									<option value="12">12</option>  <option value="13">13</option>   <option value="14">14</option><option value="15">15</option>
+									<option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option>
+									<option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+									<option value="24">24</option><option value="25">25</option><option value="26" selected>26</option><option value="27">27</option>
+									<option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option>
+								</select> <input name="txtYear" type="text" value="2013" size="4" maxlength="4"></div>
+							<div id="div_repaymentstart" style="margin-top:5px;margin-bottom:5px;">
+								Repayment starts on <br>
+								&nbsp;&nbsp;<label><input name="RepaymentStart" type="radio" id="RepaymentStart_sameday" value="sameday">Date of issue</label><br>
+								&nbsp;&nbsp;<label title="If repayment starts 1st day of next month, last few installments and loan closure will be appoximated">
+									<input name="RepaymentStart" type="radio" id="RepaymentStart_day1next" value="day1next" checked>1st day on next month</label>
+							</div>
+						</div>
+					</td>
+				</tr>
+				<tr align="right" valign="middle">
+					<td colspan="2" align="center">
+						<input name="ClearForm" type="button" class="button" onClick="ClearF();" value="Clear">  
+						&nbsp;&nbsp;&nbsp;
+						<input name="SubmitEMI" type="submit" class="button" style="cursor:hand;" value="Calculate EMI &gt;&gt;">
+						<!--<input name="SubmitEMI_button" type="button" class="button" value="Calculate EMI &gt;&gt;" onClick="CalcEMI();">-->
+					</td>
+				</tr>
+				<tr>
+					<td colspan="2" align="right">Monthy Installment:
+						<input name="t_emi" type="text" class="answer" id="t_emi" size="12" maxlength="10" readonly><br>
+						<div id="div_totamount" style="visibility:hidden;height:0px;" align="right">
+							Total interest: <input name="t_sumint" type="text" class="answer" id="t_sumint" size="12" maxlength="10" readonly><br>
+							Total amount payable: <input name="t_emitot" type="text" class="answer" id="t_emitot" size="12" maxlength="10" readonly>
+						</div>
+					</td></tr>
+			</table>
+			<div id="div_breakup" style="visibility:hidden;height:0px;"><br>
+				<span title="EMI schedule, break-up of Principal and Interest in EMIs">Amortization Schedule</span>:<br>
+				<textarea name="txtBreakup" cols="70" rows="20" id="txtBreakup" title="Double-click on this text area to convert this to CSV (you can then import the values into a spreadsheet)" lang="en" onDblClick="SwitchToCSVMode();" readonly></textarea>
+			</div>
+		</form>
+		<br>
+		<hr width="50%" align="left">
+		<br>
+		<h2>Loan Limit Calculator</h2>
+		<form name="fl" method="post" action="/" onSubmit="return CalcLL();">
+			<table border="0" cellpadding="2" cellspacing="0" class="content" id="tbl_lim">
+				<tr class="tblhd">
+					<th> Sources of<br>Income</th>
+					<th colspan="2">Net Income from each source </th>
+					<th>Fraction of this<br>income considered </th>
+				</tr>
+				<tr>
+					<td align="center">Source #1 : </td>
+					<td colspan="2" align="center"><div>Rs.	<input name="soi_1" type="text" class="currency" size="14" maxlength="10">      per
+							<select name="iu1" class="sml_menu" id="iu1">
+								<option value="1">year</option>
+								<option value="12" selected>month</option>
+							</select></div></td>
+					<td align="center">
+						<input name="pc1" type="text" id="pc1" value="100" size="5" maxlength="5" class="currency">%</td>
+				</tr>
+				<tr>
+					<td align="center">Source  #2 :</td>
+					<td colspan="2" align="center"><div>Rs.
+							<input name="soi_2" type="text" class="currency" id="soi_2" size="14" maxlength="10">      
+							per
+							<select name="iu2" class="sml_menu" id="iu2">
+								<option value="1">year</option>
+								<option value="12" selected>month</option>
+							</select></div></td>
+					<td align="center">
+						<input name="pc2" type="text" id="pc2" value="100" size="5" maxlength="5" class="currency">
+						%</td>
+				</tr>
+				<tr>
+					<td align="center">Source #3 :</td>
+					<td colspan="2" align="center"><div>Rs.
+							<input name="soi_3" type="text" class="currency" id="soi_3" size="14" maxlength="10">      
+							per
+							<select name="iu3" class="sml_menu" id="iu3">
+								<option value="1">year</option>
+								<option value="12" selected>month</option>
+							</select></div></td>
+					<td align="center">
+						<input name="pc3" type="text" id="pc3" value="100" size="5" maxlength="5" class="currency">%</td>
+				</tr>
+				<tr>
+					<td align="center">Source #4 :</td>
+					<td colspan="2" align="center"><div>Rs.
+							<input name="soi_4" type="text" class="currency" id="soi_4" size="14" maxlength="10">      
+							per
+							<select name="iu4" class="sml_menu" id="iu4">
+								<option value="1">year</option>
+								<option value="12" selected>month</option>
+							</select></div></td>
+					<td align="center">
+						<input name="pc4" type="text" id="pc4" value="100" size="5" maxlength="5" class="currency">%</td>
+				</tr>
+				<tr>
+					<td align="center">Source #5 :</td>
+					<td colspan="2" align="center"><div>Rs.
+							<input name="soi_5" type="text" class="currency" id="soi_5" size="14" maxlength="10">      
+							per
+							<select name="iu5" class="sml_menu" id="iu5">
+								<option value="1">year</option>
+								<option value="12" selected>month</option>
+							</select></div></td>
+					<td align="center">
+						<input name="pc5" type="text" id="pc5" value="100" size="5" maxlength="5" class="currency">%</td>
+				</tr>
+				<tr align="right">
+					<td colspan="4" align="center"><label for="llperiod">Income calculated for period of:</label>
+						<input name="llperiod" type="text" id="llperiod" class="currency" value="60" size="3" maxlength="2">
+						<select name="period_units" class="sml_menu" id="period_units">
+							<option value="1">years</option>
+							<option value="12" selected>months</option>
+						</select></td>
+				</tr>
+				<tr>
+					<td height="24" colspan="2" align="center"><label for="fl_t_interest">Interest Rate</label> :      
+						<input name="t_interest" type="text" class="currency" id="fl_t_interest" value="11" size="6" maxlength="6">%</td>
+					<td height="24" colspan="2" align="center"><label for="fl_sel_compounding">Compounding</label>: <select name="sel_compounding" id="fl_sel_compounding">
+							<option value="1">Yearly</option>
+							<option value="2">Half yearly</option>
+							<option value="4">Quarterly</option>
+							<option value="12" selected>Monthly</option>
+							<option value="365.25">Daily</option>
+						</select></td>
+				</tr>
+				<tr>
+					<td colspan="2" align="center">
+						<label for="fl_t_term">Term of Loan</label>: <input name="t_term" type="text" class="currency" id="fl_t_term" value="15" size="4" maxlength="4"><select name="sel_units" class="sml_menu" id="fl_sel_units">
+							<option value="1" selected>years</option>
+							<option value="12">months</option>
+						</select></td>
+					<td colspan="2" align="center" valign="middle"><label for="emibynmi"><acronym title="Equated Monthly Installment">EMI</acronym>/<acronym title="Net Monthly Income">NMI</acronym> ratio:
+							<input name="emibynmi" type="text" class="currency" id="emibynmi" value="57.5" size="5" maxlength="6">
+						</label>% </td>
+				</tr>
 
-<tr>
-<td align="right"><label for="sel_compounding">Compounding:</label> </td>
-<td align="left">
-<select name="sel_compounding" id="sel_compounding">
-  <option value="1">Yearly</option>
-  <option value="2">Half yearly</option>
-  <option value="4">Quarterly</option>
-  <option value="12" selected>Monthly</option>
-  <option value="365.25">Daily</option>
-</select></td>
-</tr>
-<tr>
-  <td colspan="2" align="center">
-Mode: <label><input name="AdvancedMode" type="radio" id="AdvancedMode_No" onClick="SwitchToSimpleMode();" value="yes" checked>Simple</label>
-<label><input name="AdvancedMode" type="radio"  id="AdvancedMode_Yes" onClick="SwitchToAdvMode();" value="no">Detailed</label>
-<br>
-<div id="div_emistart" style="visibility:hidden;height:0px;" align="left">
-<div id="div_dateofissue" style="margin-top:5px;">
-Date of issue:
-<select name="iMonth" id="iMonth">
-  <option value="0"></option>
-  <option value="1" selected>Jan</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Apr</option>
-	<option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Aug</option>
-	<option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
-</select>
-<select name="iDay" id="iDay">
-  <option value="0"></option>
-  <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-	<option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
-	<option value="9">9</option><option value="10">10</option><option value="11">11</option>
-  <option value="12">12</option>  <option value="13">13</option>   <option value="14">14</option><option value="15">15</option>
-	<option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option>
-	<option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
-	<option value="24">24</option><option value="25">25</option><option value="26" selected>26</option><option value="27">27</option>
-	<option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option>
-</select> <input name="txtYear" type="text" value="2013" size="4" maxlength="4"></div>
-<div id="div_repaymentstart" style="margin-top:5px;margin-bottom:5px;">
-Repayment starts on <br>
-&nbsp;&nbsp;<label><input name="RepaymentStart" type="radio" id="RepaymentStart_sameday" value="sameday">Date of issue</label><br>
-&nbsp;&nbsp;<label title="If repayment starts 1st day of next month, last few installments and loan closure will be appoximated">
-<input name="RepaymentStart" type="radio" id="RepaymentStart_day1next" value="day1next" checked>1st day on next month</label>
-</div>
-</div>
-</td>
- </tr>
-<tr align="right" valign="middle">
-<td colspan="2" align="center">
-  <input name="ClearForm" type="button" class="button" onClick="ClearF();" value="Clear">  
-  &nbsp;&nbsp;&nbsp;
-<input name="SubmitEMI" type="submit" class="button" style="cursor:hand;" value="Calculate EMI &gt;&gt;">
-<!--<input name="SubmitEMI_button" type="button" class="button" value="Calculate EMI &gt;&gt;" onClick="CalcEMI();">-->
-</td>
-</tr>
-<tr>
-<td colspan="2" align="right">Monthy Installment:
-<input name="t_emi" type="text" class="answer" id="t_emi" size="12" maxlength="10" readonly><br>
-<div id="div_totamount" style="visibility:hidden;height:0px;" align="right">
-Total interest: <input name="t_sumint" type="text" class="answer" id="t_sumint" size="12" maxlength="10" readonly><br>
-Total amount payable: <input name="t_emitot" type="text" class="answer" id="t_emitot" size="12" maxlength="10" readonly>
-</div>
-</td></tr>
-</table>
-<div id="div_breakup" style="visibility:hidden;height:0px;"><br>
-<span title="EMI schedule, break-up of Principal and Interest in EMIs">Amortization Schedule</span>:<br>
-<textarea name="txtBreakup" cols="70" rows="20" id="txtBreakup" title="Double-click on this text area to convert this to CSV (you can then import the values into a spreadsheet)" lang="en" onDblClick="SwitchToCSVMode();" readonly></textarea>
-</div>
-</form>
-<br>
-<hr width="50%" align="left">
-<br>
-<h2>Loan Limit Calculator</h2>
-<form name="fl" method="post" action="/" onSubmit="return CalcLL();">
-<table border="0" cellpadding="2" cellspacing="0" class="content" id="tbl_lim">
-  <tr class="tblhd">
-    <th> Sources of<br>
-      Income</th>
-    <th colspan="2">Net Income from each source </th>
-    <th>Fraction of this<br>
-      income considered </th>
-  </tr>
-  <tr>
-    <td align="center">Source #1 : </td>
-    <td colspan="2" align="center"><div>Rs.
-        <input name="soi_1" type="text" class="currency" size="14" maxlength="10">      
-        per
-        <select name="iu1" class="sml_menu" id="iu1">
-          <option value="1">year</option>
-          <option value="12" selected>month</option>
-          </select></div></td>
-    <td align="center">
-      <input name="pc1" type="text" id="pc1" value="100" size="5" maxlength="5" class="currency">%</td>
-  </tr>
-  <tr>
-    <td align="center">Source  #2 :</td>
-    <td colspan="2" align="center"><div>Rs.
-      <input name="soi_2" type="text" class="currency" id="soi_2" size="14" maxlength="10">      
-      per
-      <select name="iu2" class="sml_menu" id="iu2">
-        <option value="1">year</option>
-        <option value="12" selected>month</option>
-      </select></div></td>
-    <td align="center">
-      <input name="pc2" type="text" id="pc2" value="100" size="5" maxlength="5" class="currency">
-      %</td>
-  </tr>
-  <tr>
-    <td align="center">Source #3 :</td>
-    <td colspan="2" align="center"><div>Rs.
-      <input name="soi_3" type="text" class="currency" id="soi_3" size="14" maxlength="10">      
-      per
-      <select name="iu3" class="sml_menu" id="iu3">
-        <option value="1">year</option>
-        <option value="12" selected>month</option>
-      </select></div></td>
-    <td align="center">
-      <input name="pc3" type="text" id="pc3" value="100" size="5" maxlength="5" class="currency">%</td>
-  </tr>
-  <tr>
-    <td align="center">Source #4 :</td>
-    <td colspan="2" align="center"><div>Rs.
-      <input name="soi_4" type="text" class="currency" id="soi_4" size="14" maxlength="10">      
-      per
-      <select name="iu4" class="sml_menu" id="iu4">
-        <option value="1">year</option>
-        <option value="12" selected>month</option>
-      </select></div></td>
-    <td align="center">
-      <input name="pc4" type="text" id="pc4" value="100" size="5" maxlength="5" class="currency">%</td>
-  </tr>
-  <tr>
-    <td align="center">Source #5 :</td>
-    <td colspan="2" align="center"><div>Rs.
-      <input name="soi_5" type="text" class="currency" id="soi_5" size="14" maxlength="10">      
-      per
-      <select name="iu5" class="sml_menu" id="iu5">
-        <option value="1">year</option>
-        <option value="12" selected>month</option>
-      </select></div></td>
-    <td align="center">
-      <input name="pc5" type="text" id="pc5" value="100" size="5" maxlength="5" class="currency">%</td>
-  </tr>
-  <tr align="right">
-    <td colspan="4" align="center"><label for="llperiod">Income calculated for period of:</label>
-      <input name="llperiod" type="text" id="llperiod" class="currency" value="60" size="3" maxlength="2">
-        <select name="period_units" class="sml_menu" id="period_units">
-          <option value="1">years</option>
-          <option value="12" selected>months</option>
-      </select></td>
-    </tr>
-  <tr>
-    <td height="24" colspan="2" align="center"><label for="fl_t_interest">Interest Rate</label>
-      :      
-      <input name="t_interest" type="text" class="currency" id="fl_t_interest" value="11" size="6" maxlength="6">
-      %</td>
-    <td height="24" colspan="2" align="center"><label for="fl_sel_compounding">Compounding</label>: <select name="sel_compounding" id="fl_sel_compounding">
-          <option value="1">Yearly</option>
-          <option value="2">Half yearly</option>
-          <option value="4">Quarterly</option>
-          <option value="12" selected>Monthly</option>
-          <option value="365.25">Daily</option>
-        </select></td>
-    </tr>
-  <tr>
-    <td colspan="2" align="center">
-		<label for="fl_t_term">Term of Loan</label>: <input name="t_term" type="text" class="currency" id="fl_t_term" value="15" size="4" maxlength="4"><select name="sel_units" class="sml_menu" id="fl_sel_units">
-          <option value="1" selected>years</option>
-          <option value="12">months</option>
-        </select></td>
-    <td colspan="2" align="center" valign="middle"><label for="emibynmi"><acronym title="Equated Monthly Installment">EMI</acronym>/<acronym title="Net Monthly Income">NMI</acronym> ratio:
-        <input name="emibynmi" type="text" class="currency" id="emibynmi" value="57.5" size="5" maxlength="6">
-    </label>% </td>
-  </tr>
-  
-  <tr>
-    <td colspan="4" align="center">
-		<input name="reset" type="reset" class="button" onClick="return confirm('This will reset the form');" value="Clear"> 
-		&nbsp;&nbsp;
-		<input name="SubmitLL" type="submit" class="button" id="SubmitLL" style="cursor:hand;" onClick="return CalcLL();" value="Calculate Loan Limit &gt;&gt;">
-       &nbsp;&nbsp;&nbsp;&nbsp;Rs.  
-       <input name="loanlimit" type="text" id="loanlimit" size="15" maxlength="15" class="answer" readonly></td>
-    </tr>
- <tr>
-    <td colspan="4" align="left"><div id="fldetails">Calculation details:<br>
-       <textarea name="report" cols="45" rows="7" style="width:90%;" lang="en" readonly></textarea></div></td>
-  </tr>
-</table>
-</form>
-<hr width="50%" align="left">
-</body>
+				<tr>
+					<td colspan="4" align="center">
+						<input name="reset" type="reset" class="button" onClick="return confirm('This will reset the form');" value="Clear"> 
+						&nbsp;&nbsp;
+						<input name="SubmitLL" type="submit" class="button" id="SubmitLL" style="cursor:hand;" onClick="return CalcLL();" value="Calculate Loan Limit &gt;&gt;">
+						&nbsp;&nbsp;&nbsp;&nbsp;Rs.  
+						<input name="loanlimit" type="text" id="loanlimit" size="15" maxlength="15" class="answer" readonly></td>
+				</tr>
+				<tr>
+					<td colspan="4" align="left"><div id="fldetails">Calculation details:<br>
+							<textarea name="report" cols="45" rows="7" style="width:90%;" lang="en" readonly></textarea></div></td>
+				</tr>
+			</table>
+		</form>
+		<hr width="50%" align="left">
+	</body>
 </html>
